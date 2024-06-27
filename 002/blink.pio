@@ -1,0 +1,25 @@
+.program blink
+    pull block  ; pull from FIFO to OSR if available, should halt when no data is available (x == 0), and pick it up as it comes in (copy Y to OSR);
+    out y, 32   ; Copy most recently pulled value back to scratch Y 
+.wrap_target
+    mov x, y   ; X used as a counter
+    set pins, 1 ; Turn LED on
+lp1:
+    jmp x-- lp1 ; Delay for (x + 1) cycles, x is a 32 bit number, keep decrementing until x != 0
+    mov x, y
+    set pins 0  ; Turn LED off
+lp2:
+    jmp x-- lp2 ; Delay for same number of cycles again
+.wrap   ; Blink Forever!
+
+% c-sdk {
+// this is a raw helper function for use by user which sets up the GPIO output, and configures the SM to output on a particular pin
+
+void blink_program_init(PIO pio, uint sm, uint offset, uint pin) {
+    pio_gpio_init(pio, pin); // Allow PIO to control GPIO pin (as output)
+    pio_sm_set_consecutive_pindirs(pio, sm, pin, 1, true); // Sets the pin direction to output in PIO
+    pio_sm_config c = blink_program_get_default_config(offset);  // Sets up the state machine and wrap target
+    sm_config_set_set_pins(&c, pin, 1); // Set the 'set' pins in a state machine configuration.
+    pio_sm_init(pio, sm, offset, &c); // Resets the state machine to a consistent state, and configures it.
+}
+%}
